@@ -1,5 +1,7 @@
 import React, { Component } from 'react';
 import Navigation from './Components/Navigation/Navigation';
+import Signin from './Components/Signin/Signin';
+import Register from './Components/Register/Register';
 import FaceRecognition from './Components/FaceRecognition/FaceRecognition';
 import Logo from './Components/Logo/Logo';
 import ImageLinkForm from './Components/ImageLinkForm/ImageLinkForm';
@@ -13,8 +15,10 @@ class App extends Component {
       input: '',
       imageUrl: '',
       box: {},
+      route: 'signin',
+      isSignedIn: false,
       regions: []
-    };
+    }; 
   }
 
   calculateFaceLocation = (data) => {
@@ -27,13 +31,13 @@ class App extends Component {
       leftCol: boundingBox.left_col * width,
       topRow: boundingBox.top_row * height,
       rightCol: width - (boundingBox.right_col * width),
-      bottomRow: height - (boundingBox.bottom_row * height) // Corrected calculation
+      bottomRow: height - (boundingBox.bottom_row * height) 
     };
   };
 
   displayFacebox = (box) => {
     console.log(box);
-    this.setState({ box: box });
+    this.setState({ box });
   };
 
   onInputChange = (event) => {
@@ -49,7 +53,6 @@ class App extends Component {
     const APP_ID = 'main';
     const MODEL_ID = 'face-detection';
     const MODEL_VERSION_ID = '6dc7e46bc9124c5c8824be4822abe105';
-    const IMAGE_URL = input; // Use input directly from state
 
     const raw = JSON.stringify({
       "user_app_id": {
@@ -60,7 +63,7 @@ class App extends Component {
         {
           "data": {
             "image": {
-              "url": IMAGE_URL
+              "url": input
             }
           }
         }
@@ -87,7 +90,8 @@ class App extends Component {
         console.log("API Result:", result);
         if (result.outputs && result.outputs.length > 0 && result.outputs[0].data && result.outputs[0].data.regions) {
           const regions = result.outputs[0].data.regions;
-          this.setState({ regions });
+          const faceBoxes = regions.map(region => this.calculateFaceLocation(region));
+          this.displayFacebox(faceBoxes);
 
           regions.forEach(region => {
             const boundingBox = region.region_info.bounding_box;
@@ -95,9 +99,6 @@ class App extends Component {
             const leftCol = boundingBox.left_col.toFixed(3);
             const bottomRow = boundingBox.bottom_row.toFixed(3);
             const rightCol = boundingBox.right_col.toFixed(3);
-
-            const faceBox = this.calculateFaceLocation(region);
-            this.displayFacebox(faceBox);
 
             region.data.concepts.forEach(concept => {
               const name = concept.name;
@@ -112,18 +113,39 @@ class App extends Component {
       .catch(error => console.log('Error fetching from Clarifai API:', error));
   };
 
+  onRouteChange = (route) => {
+    if (route === 'signout') {
+      this.setState({ isSignedIn: false, route: 'signin' });
+    } else if (route === 'home') {
+      this.setState({ isSignedIn: true, route: 'home' });
+    } else {
+      this.setState({ route });
+    }
+  }
+
   render() {
     return (
       <div className="App">
-        <Navigation />
-        <Logo />
-        <Rank />
-        <ImageLinkForm onInputChange={this.onInputChange} onButtonSubmit={this.onButtonSubmit} />
-        <FaceRecognition box={this.state.box} imageUrl={this.state.imageUrl} />
+        <Navigation isSignedIn={this.state.isSignedIn} onRouteChange={this.onRouteChange} />
+        { this.state.route === 'home' 
+          ? <div>
+              <Logo />
+              <Rank />
+              <ImageLinkForm 
+                onInputChange={this.onInputChange} 
+                onButtonSubmit={this.onButtonSubmit} 
+              />
+              <FaceRecognition box={this.state.box} imageUrl={this.state.imageUrl} />
+            </div> 
+          : (
+              this.state.route === 'signin' 
+                ? <Signin onRouteChange={this.onRouteChange}/> 
+                : <Register onRouteChange={this.onRouteChange}/> 
+            )
+        }
       </div>
     );
   }
 }
 
 export default App;
-
